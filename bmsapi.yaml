@@ -1,0 +1,1342 @@
+swagger: "2.0"
+schemes: 
+  - https
+produces: 
+  - application/xml
+host: "/"
+info: 
+  title: "Holocentric BMS3 API"
+  version: 3.1.3
+  x-logo: 
+    url: "https://media.licdn.com/media/p/7/005/0a3/2dd/144b17a.png"
+  description: |
+      # Overview
+      Holocentric Modelpedia now supports API that is based on OData style interface and data structure. 
+      
+      This API can be used by third party applications to retreive data from Modelpedia. The API supports a single RESTful service that can return the schema of a queried library. Additionally you can also retreive related items and relationships for a queried item type. 
+      
+      API access is performed over HTTPS and accessed from a variable URI based on client installations and libraries. 
+      
+      This document is aimed at helping you work with this API functionality in Modelpedia.
+      # Prerequisites
+      
+      - The API license key needs to be uploaded to the server.
+      - The SSL certificate needs to be installed for the API.
+      - The user making the API requests needs to be assigned the role `API Client (Full Read)`.
+      
+      # Licensing
+      
+      A separate API license key is required to be installed in Modelpedia before a published library can be accessed via the exposed API.
+      
+      API callers are required to be authorized Modelpedia users and therefore follow standard subscription licensing model.
+# The tags on paths define the menu sections in the ReDoc documentation, so
+# the usage of tags must make sense for that:
+# - They should be singular, not plural.
+# - There should not be too many tags, or the menu becomes unwieldly. For
+#   example, it is preferable to add a path to the "System" tag instead of
+#   creating a tag with a single path in it.
+# - The order of tags in this list defines the order in the menu.
+tags:
+  # Primary objects
+  - name: "Authentication"
+    x-displayName: "Authentication"
+    description: |
+        Holocentric BMS uses OAuth for the service authentication. This authentication mechanism requires an initial call to authenticate the API user based on the user name and password provided, and will then return an access token.
+        
+        The token that is received can then be used for subsequent API requests.
+        
+        Please note the following:
+        
+        - The access token has a default expiry time of 8 hours.
+        
+        - Subsequent requests for a token within the 8 hour expiry period will not expire existing valid tokens.
+        
+        - Tokens must not be shared; only the requesting IP address can use the token provided.
+    
+  - name: "Schema"
+    x-displayName: "Schema"
+    description: |
+        These API requests are used to retreive the schema of a queried library. It lists out the item types available in the library along with the XML schema for those item types.
+        
+        The response received will vary depending on the library model configuration done in Holocentric Modeler.
+    
+  - name: "Items"
+    x-displayName: "Items" 
+    description: | 
+        This API request is used to retreive the items and associated relationships of a specified item type in the queried library. The response received will vary based on the model configuration done in Holocentric Modeler.
+    
+parameters: 
+  $count: 
+    default: true
+    description: "This option is used when you want to retreive a count of the number of items that are available for a specified item type. The count value will be provided within the header of the API response."
+    in: query
+    name: $count
+    required: false
+    type: boolean
+  $select: 
+    description: "This parameter can be used to retreive specific properties of an item type."
+    in: query
+    name: $select
+    required: false
+    type: string
+  $skip: 
+    description: "This is a paging option to skip the specified number of items in the list. e.g.`$skip=50` will skip the first 50 items in the list and return results from the 51st item onwards."
+    in: query
+    name: $skip
+    required: false
+    type: integer
+  $top: 
+    description: |-
+        This is a paging option to return the specified number of items from the top of the list. 
+        e.g. `$top=50` will return the first 50 items in the list.
+    in: query
+    name: $top
+    required: false
+    type: integer
+  Authorization: 
+    description: "Example: `Bearer b7d03a6947b217efb6f3ec3bd3504582`"
+    in: header
+    name: Authorization
+    required: true
+    type: string
+  content-type: 
+    description: "Example: `application/xml`"
+    in: header
+    name: content-type
+    required: true
+    type: string
+  $filter: 
+    description: "Filter out the item type using the `isOf` option. Only the `isOf` option is supported for item type checking."
+    in: query
+    name: $filter
+    required: false
+    type: string
+paths: 
+  server_url/api/token: 
+    post: 
+      description: |-
+          This API request is used to obtain an access token for authorization purposes. 
+          Prior to making any API requests, you need to obtain an access token that you can then use for all subsequent API requests.
+      operationId: obtain-access-token
+      parameters: 
+        - 
+          description: "Modelpedia server URL."
+          in: path
+          name: server_url
+          required: true
+          type: string
+        - 
+          description: "Use the value `password` since you will be obtaining an access token using your password credentials."
+          in: query
+          name: grant_type
+          required: true
+          type: string
+        - 
+          description: "The account username for which you want to obtain an access token."
+          in: query
+          name: username
+          required: true
+          type: string
+        - 
+          description: "The account password for which you want to obtain an access token."
+          in: query
+          name: password
+          required: true
+          type: string
+      responses: 
+        200: 
+          description: "OK"
+          schema: 
+            type: object
+            properties:
+              access_token:
+                type: string
+                example: mUZrfE9MJySA1YTyGl9HsMjIypWNtl9jqjpfqxMKakdV00Fkh6C38gZkztrtCzWS
+              token_type:
+                type: string
+                example: Bearer
+              expires_in:
+                type: string
+                example: 28798
+        500: 
+          $ref: "#/responses/Server_error"
+      summary: "Obtain access token"
+      tags: ["Authentication"]
+      
+  server_url/api/{model_choice}/{model_uuid}/items/schema: 
+    get: 
+      description: "This is to query the schema of a model library using the library UUID. When using the library UUID, you are required to provide the model choice (i.e. `LatestDraft`, `LatestProposed` or `LatestFinal`)."
+      operationId: get-item-schema_status
+      parameters: 
+        - 
+          description: "Modelpedia server URL."
+          in: path
+          name: server_url
+          required: true
+          type: string
+        - 
+          description: "Specifies if you want to retreive the draft, proposed or final version of the library. You can use any one of the values `LatestDraft`, `LatestProposed` or `LatestFinal`."
+          in: path
+          name: model_choice
+          required: true
+          type: string
+        - 
+          description: "The published library uuid."
+          in: path
+          name: model_uuid
+          required: true
+          type: string
+        - 
+          $ref: "#/parameters/Authorization"
+        - 
+          $ref: "#/parameters/content-type"
+      responses: 
+        200: 
+          description: OK
+          schema: 
+            type: object
+          examples:
+            application/xml: |
+              <?xml version="1.0"?>
+              <xs:schema attributeFormDefault="unqualified" elementFormDefault="qualified" xmlns:xs="http://www.w3.org/2001/XMLSchema">
+                  <xs:annotation>
+                      <xs:documentation>version: {FA404B82-C6AF-4AD2-B029-9FFEFBB959FD}</xs:documentation>
+                  </xs:annotation>
+                  <xs:complexType name="Any">
+                      <xs:sequence>
+                          <xs:any minOccurs="0" maxOccurs="1" />
+                      </xs:sequence>
+                  </xs:complexType>
+                  <xs:complexType name="BusinessRule">
+                      <xs:sequence>
+                          <xs:choice maxOccurs="unbounded">
+                              <xs:element name="uuid" type="xs:string" />
+                              <xs:element name="title" type="xs:string" />
+                              <xs:element name="businessRule" type="xs:string" />
+                              <xs:element name="category" type="xs:string" />
+                              <xs:element name="dataQualityObjective" type="xs:string" />
+                              <xs:element name="dataQualityPrinciple" type="xs:string" />
+                              <xs:element name="description" type="xs:string" />
+                              <xs:element name="effectiveEndDate" type="xs:date" />
+                              <xs:element name="effectiveStartDate" type="xs:date" />
+                              <xs:element name="guideForUse" type="xs:string" />
+                              <xs:element name="name" type="xs:string" />
+                              <xs:element name="uid" type="xs:string" />
+                              <xs:element name="registrationStatus" type="CollectionOfRegistrationStatus" />
+                              <xs:element name="relatedDataReferences" type="CollectionOfMetadataItemRelatedDataReference" />
+                              <xs:element name="aliases">
+                                  <xs:complexType>
+                                      <xs:sequence>
+                                          <xs:element name="value" type="xs:string" />
+                                      </xs:sequence>
+                                  </xs:complexType>
+                              </xs:element>
+                              <xs:element name="alternateName">
+                                  <xs:complexType>
+                                      <xs:sequence>
+                                          <xs:element name="value" type="xs:string" />
+                                      </xs:sequence>
+                                  </xs:complexType>
+                              </xs:element>
+                              <xs:element name="steward" type="CollectionOfPositionInstance" />
+                              <xs:element name="custodian" type="CollectionOfPositionInstance" />
+                              <xs:element name="keyContact" type="CollectionOfPositionInstance" />
+                              <xs:element name="administrators" type="CollectionOfPositionInstance" />
+                              <xs:element name="dataSetSpecifications" type="CollectionOfDataSetSpecification" />
+                              <xs:element name="glossaryItems" type="CollectionOfGlossaryItemTerm" />
+                              <xs:element name="validations" type="CollectionOfValidation" />
+                          </xs:choice>
+                      </xs:sequence>
+                      <xs:attribute name="refUuid" type="xs:string" use="optional" />
+                  </xs:complexType>
+                  <xs:complexType name="GlossaryItemTerm">
+                      <xs:sequence>
+                          <xs:choice maxOccurs="unbounded">
+                              <xs:element name="uuid" type="xs:string" />
+                              <xs:element name="title" type="xs:string" />
+                              <xs:element name="caseStudy" type="xs:string" />
+                              <xs:element name="category" type="xs:string" />
+                              <xs:element name="collectionMethods" type="xs:string" />
+                              <xs:element name="comments" type="xs:string" />
+                              <xs:element name="context" type="xs:string" />
+                              <xs:element name="description" type="xs:string" />
+                              <xs:element name="effectiveEndDate" type="xs:date" />
+                              <xs:element name="effectiveStartDate" type="xs:date" />
+                              <xs:element name="guideForUse" type="xs:string" />
+                              <xs:element name="name" type="xs:string" />
+                              <xs:element name="origin" type="xs:string" />
+                              <xs:element name="periodicReviewByDate" type="xs:date" />
+                              <xs:element name="referenceDocuments" type="xs:string" />
+                              <xs:element name="submittingOrganisation" type="xs:string" />
+                              <xs:element name="uid" type="xs:string" />
+                              <xs:element name="registrationStatus" type="CollectionOfRegistrationStatus" />
+                              <xs:element name="relatedDataReferences" type="CollectionOfMetadataItemRelatedDataReference" />
+                              <xs:element name="aliases">
+                                  <xs:complexType>
+                                      <xs:sequence>
+                                          <xs:element name="value" type="xs:string" />
+                                      </xs:sequence>
+                                  </xs:complexType>
+                              </xs:element>
+                              <xs:element name="alternateName">
+                                  <xs:complexType>
+                                      <xs:sequence>
+                                          <xs:element name="value" type="xs:string" />
+                                      </xs:sequence>
+                                  </xs:complexType>
+                              </xs:element>
+                              <xs:element name="metadataItems" type="CollectionOfMetadataItem" />
+                              <xs:element name="administrators" type="CollectionOfPositionInstance" />
+                              <xs:element name="custodian" type="CollectionOfPositionInstance" />
+                              <xs:element name="steward" type="CollectionOfPositionInstance" />
+                              <xs:element name="keyContact" type="CollectionOfPositionInstance" />
+                              <xs:element name="glossaryItems" type="CollectionOfGlossaryItemTerm" />
+                          </xs:choice>
+                      </xs:sequence>
+                      <xs:attribute name="refUuid" type="xs:string" use="optional" />
+                  </xs:complexType>
+                  <xs:element name="items">
+                      <xs:complexType>
+                          <xs:choice maxOccurs="unbounded">
+                              <xs:element name="BusinessRule" type="BusinessRule" />
+                              <xs:element name="GlossaryItemTerm" type="GlossaryItemTerm" />
+                          </xs:choice>
+                      </xs:complexType>
+                  </xs:element>
+              </xs:schema>         
+        401: 
+          description: Authorization denied or Unauthorized
+          schema:
+            properties:
+              Auhorization denied:
+                $ref: "#/responses/Authorization_denied"
+              Unauthorized:
+                $ref: "#/responses/Unauthorized"
+        404: 
+          description: Invalid model or Requires initialization or Not found 
+          schema:
+            properties:
+              Invalid model:
+                $ref: "#/responses/Invalid_model"
+              Requires initialization:
+                $ref: "#/responses/Requires_initialization"
+              Not found:
+                $ref: "#/responses/Not_found"
+        400: 
+          $ref: "#/responses/Unauthorized_IP_Mismatch"
+        500: 
+          $ref: "#/responses/Server_error"
+      summary: "Get item schema using library model UUID"
+      tags: ["Schema"]
+      
+  server_url/api/{model_choice}/{model_uuid}/items?$filter=isof('item_type'): 
+    get: 
+      description: |-
+          This API request will retreive all items relating to the specified item type. The item type can be filtered out using the `$filter` paramater and the `isOf` option. 
+          e.g., `filter=isof('Business Rule')` will list out all items that are listed under item type `Business Rule`.
+      operationId: list-items-of-a-specified-item-type-using-library-model-uuid
+      parameters: 
+        - 
+          description: "Modelpedia server URL."
+          in: path
+          name: server_url
+          required: true
+          type: string
+        - 
+          description: "Specifies if you want to retreive the draft, proposed or final version of the library. You can use any one of the values `LatestDraft`, `LatestProposed` or `LatestFinal`."
+          in: path
+          name: model_choice
+          required: true
+          type: string
+        - 
+          description: "The UUID of the published model library."
+          in: path
+          name: model_uuid
+          required: true
+          type: string
+        - 
+          $ref: "#/parameters/$filter"
+        - 
+          $ref: "#/parameters/$top"
+        - 
+          $ref: "#/parameters/$skip"
+        - 
+          $ref: "#/parameters/$count"
+        - 
+          $ref: "#/parameters/$select"
+        - 
+          $ref: "#/parameters/Authorization"
+        - 
+          $ref: "#/parameters/content-type"
+      responses: 
+        ? "200"
+        : 
+          description: OK
+          schema: 
+            type: object
+          examples:
+            application/xml: |
+              <?xml version="1.0" encoding="utf-8"?>
+              <items xsi:schemaLocation="https://www.modelpedia.com/api/{FA404B82-C6AF-4AD2-B029-9FFEFBB959FD}/items/schema" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance">
+                  <BusinessRule>
+                      <uuid>{192D6750-856C-42C0-9F5C-433C2636BCA7}</uuid>
+                      <title>Business Rule - Eft Kitschy</title>
+                      <uid>10000727</uid>
+                      <name>Business Rule - Eft Kitschy</name>
+                      <aliases>
+                          <value>Eft Kitschy</value>
+                      </aliases>
+                      <alternateName>
+                          <value>Lorem ipsum dolor sit amet</value>
+                          <value>consectetur adipiscing elit</value>
+                          <value>sed do eiusmod tempor incididunt ut labore et dolore magna aliqua</value>
+                      </alternateName>
+                      <description>This is the description.</description>
+                      <effectiveStartDate>1997-09-22T14:00:00.0000000Z</effectiveStartDate>
+                      <businessRule>Business rule specfication...</businessRule>
+                      <relatedDataReferences>
+                          <MetadataItemRelatedDataReference>
+                              <relationshipUuid>{83C8E7CF-1D4E-40CC-BCF3-205FF646B80A}</relationshipUuid>
+                              <otherEnd>
+                                  <ValueDomain refUuid="{615B18EC-3A4F-4CB3-826A-D86B7F59926A}" />
+                              </otherEnd>
+                              <relationshipType>Synonym</relationshipType>
+                              <otherEndKey>
+                                  <ValueDomain refUuid="{615B18EC-3A4F-4CB3-826A-D86B7F59926A}" />
+                              </otherEndKey>
+                              <title>Synonym, Dangerous Fennec</title>
+                          </MetadataItemRelatedDataReference>
+                          <MetadataItemRelatedDataReference>
+                              <relationshipUuid>{551DCEBE-C9E6-43ED-B672-B5339399F426}</relationshipUuid>
+                              <otherEnd>
+                                  <FrameworkDimension refUuid="{3F539697-6CD5-47F8-B814-C8BF591F672C}" />
+                              </otherEnd>
+                              <relationshipType>Derived From</relationshipType>
+                              <otherEndKey>
+                                  <FrameworkDimension refUuid="{3F539697-6CD5-47F8-B814-C8BF591F672C}" />
+                              </otherEndKey>
+                              <title>Derived From, Mental Termite</title>
+                          </MetadataItemRelatedDataReference>
+                      </relatedDataReferences>
+                      <registrationStatus>
+                          <RegistrationStatus>
+                              <registrationAuthority>
+                                  <RegistrationAuthority refUuid="{0AB03B44-05DB-44FA-92E6-3F026644F094}" />
+                              </registrationAuthority>
+                              <registrationDate>2005-12-10T13:00:00.0000000Z</registrationDate>
+                              <registrationState>Standard</registrationState>
+                              <title>Walrus Xenophobic, Standard 11/12/2005</title>
+                          </RegistrationStatus>
+                      </registrationStatus>
+                      <steward>
+                          <PositionInstance refUuid="{7F5739ED-7982-4A08-AAA4-C84E9EFD0FB5}" />
+                      </steward>
+                      <custodian>
+                          <PositionInstance refUuid="{31375D4B-DCD5-47DD-8E39-FC06EF406954}" />
+                      </custodian>
+                      <administrators>
+                          <PositionInstance refUuid="{31375D4B-DCD5-47DD-8E39-FC06EF406954}" />
+                      </administrators>
+                      <validations>
+                          <Validation refUuid="{1AB7B09C-C050-4A44-9FC8-39ADFF0C8827}" />
+                      </validations>
+                      <dataSetSpecifications>
+                          <DataSetSpecification refUuid="{B0AE5E7A-384B-4A8F-874F-39425FB1CC1F}" />
+                      </dataSetSpecifications>
+                  </BusinessRule>
+                  <BusinessRule>
+                      <uuid>{22B3FA59-B836-4AA6-8300-B5EAB16711B5}</uuid>
+                      <title>Business Rule - Zebra Froody</title>
+                      <uid>10000730</uid>
+                      <name>Business Rule - Zebra Froody</name>
+                      <aliases>
+                          <value>Zebra Froody</value>
+                      </aliases>
+                      <description>This is a description.</description>
+                      <businessRule>This is the business rule...</businessRule>
+                      <relatedDataReferences>
+                          <MetadataItemRelatedDataReference>
+                              <relationshipUuid>{153B4C64-4DC6-4C1E-96C0-80E1A144EA58}</relationshipUuid>
+                              <otherEnd>
+                                  <BusinessRule refUuid="{5118D8CD-9BB3-4E93-9805-16F78BA31A84}" />
+                              </otherEnd>
+                              <notes>&lt;p&gt;Lorem ipsum dolor sit amet, consectetur adipiscing elit, sed do eiusmod tempor incididunt ut labore et dolore magna aliqua&amp;nbsp; Ut enim ad minim veniam, quis nostrud exercitation ullamco laboris nisi ut aliquip ex ea commodo consequat &lt;/p&gt;</notes>
+                              <relationshipType>Variant</relationshipType>
+                              <otherEndKey>
+                                  <BusinessRule refUuid="{5118D8CD-9BB3-4E93-9805-16F78BA31A84}" />
+                              </otherEndKey>
+                              <title>Variant, Rooster Leftist</title>
+                          </MetadataItemRelatedDataReference>
+                          <MetadataItemRelatedDataReference>
+                              <relationshipUuid>{63D4073A-54A6-4AC9-9B70-FF3A5FBEA4AD}</relationshipUuid>
+                              <otherEnd>
+                                  <DataElement refUuid="{A1D43215-22ED-4136-A218-383BE3FE1450}" />
+                              </otherEnd>
+                              <relationshipType>Derived From</relationshipType>
+                              <otherEndKey>
+                                  <DataElement refUuid="{A1D43215-22ED-4136-A218-383BE3FE1450}" />
+                              </otherEndKey>
+                              <title>Derived From, Veteran Jaybird</title>
+                          </MetadataItemRelatedDataReference>
+                          <MetadataItemRelatedDataReference>
+                              <relationshipUuid>{C04A4769-3D6B-4C76-B2EB-A862EBA8BD8B}</relationshipUuid>
+                              <otherEnd>
+                                  <DataElementConcept refUuid="{E5BD50F6-E6CA-4D12-918C-6C20A8C4F8B1}" />
+                              </otherEnd>
+                              <relationshipType>Implemented By</relationshipType>
+                              <otherEndKey>
+                                  <DataElementConcept refUuid="{E5BD50F6-E6CA-4D12-918C-6C20A8C4F8B1}" />
+                              </otherEndKey>
+                              <title>Implemented By, Jabbering Gator</title>
+                          </MetadataItemRelatedDataReference>
+                          <MetadataItemRelatedDataReference>
+                              <relationshipUuid>{7C6C274F-9BF5-4DA2-B542-1311797FB9A8}</relationshipUuid>
+                              <otherEnd>
+                                  <Property refUuid="{5BE469B8-32EB-4E5A-8025-3C3098936AF6}" />
+                              </otherEnd>
+                              <relationshipType>Implemented By</relationshipType>
+                              <otherEndKey>
+                                  <Property refUuid="{5BE469B8-32EB-4E5A-8025-3C3098936AF6}" />
+                              </otherEndKey>
+                              <title>Implemented By, Gnarwhal Xenial</title>
+                          </MetadataItemRelatedDataReference>
+                          <MetadataItemRelatedDataReference>
+                              <relationshipUuid>{CB6F10D5-09F2-4CD4-81ED-6B3BF6587C07}</relationshipUuid>
+                              <otherEnd>
+                                  <DataElement refUuid="{467DD7E3-4817-4392-9ADC-9AF16C4483C4}" />
+                              </otherEnd>
+                              <notes>&lt;p&gt;Lorem ipsum dolor sit amet, consectetur adipiscing elit, sed do eiusmod tempor incididunt ut labore et dolore magna aliqua&amp;nbsp; Ut enim ad minim veniam, quis nostrud exercitation ullamco laboris nisi ut aliquip ex ea commodo consequat&amp;nbsp; Duis aute irure dolor in reprehenderit in voluptate velit esse cillum dolore eu fugiat nulla pariatur &lt;/p&gt;</notes>
+                              <relationshipType>Duplicate</relationshipType>
+                              <otherEndKey>
+                                  <DataElement refUuid="{467DD7E3-4817-4392-9ADC-9AF16C4483C4}" />
+                              </otherEndKey>
+                              <title>Duplicate, Untapped Jaybird</title>
+                          </MetadataItemRelatedDataReference>
+                          <MetadataItemRelatedDataReference>
+                              <relationshipUuid>{54047F8C-BEC4-44DB-ADAF-2FE77B093118}</relationshipUuid>
+                              <otherEnd>
+                                  <Property refUuid="{9346D77D-19B1-42DF-BBB8-8A11FD73B6D0}" />
+                              </otherEnd>
+                              <notes>&lt;p&gt;Lorem ipsum dolor sit amet, consectetur adipiscing elit, sed do eiusmod tempor incididunt ut labore et dolore magna aliqua &lt;/p&gt;</notes>
+                              <relationshipType>Derived From</relationshipType>
+                              <otherEndKey>
+                                  <Property refUuid="{9346D77D-19B1-42DF-BBB8-8A11FD73B6D0}" />
+                              </otherEndKey>
+                              <title>Derived From, Xenarthra Igneous</title>
+                          </MetadataItemRelatedDataReference>
+                          <MetadataItemRelatedDataReference>
+                              <relationshipUuid>{74AB8792-C469-4CDD-8407-152FB981826F}</relationshipUuid>
+                              <otherEnd>
+                                  <ObjectClass refUuid="{7A258363-0E15-4492-BE71-04876463E2F3}" />
+                              </otherEnd>
+                              <notes />
+                              <relationshipType>Source Of</relationshipType>
+                              <otherEndKey>
+                                  <ObjectClass refUuid="{7A258363-0E15-4492-BE71-04876463E2F3}" />
+                              </otherEndKey>
+                              <title>Source Of, Pika Clever</title>
+                          </MetadataItemRelatedDataReference>
+                      </relatedDataReferences>
+                      <custodian>
+                          <PositionInstance refUuid="{7B2662AF-CA34-440A-AE6E-F81A34258F47}" />
+                      </custodian>
+                      <keyContact>
+                          <PositionInstance refUuid="{6E2A6095-FEB5-42E4-B251-3E38353750A4}" />
+                      </keyContact>
+                      <steward>
+                          <PositionInstance refUuid="{A6E5FBDE-CFA1-4EDB-9DAF-2BE09C76916B}" />
+                      </steward>
+                      <administrators>
+                          <PositionInstance refUuid="{31375D4B-DCD5-47DD-8E39-FC06EF406954}" />
+                      </administrators>
+                      <dataSetSpecifications>
+                          <DataSetSpecification refUuid="{B0AE5E7A-384B-4A8F-874F-39425FB1CC1F}" />
+                      </dataSetSpecifications>
+                      <glossaryItems>
+                          <GlossaryItemTerm refUuid="{522049A4-AAE1-4B95-969D-A32C049175F3}" />
+                      </glossaryItems>
+                  </BusinessRule>
+              </items>
+        400: 
+          description: Invalid property or Unauthorized
+          schema:
+            properties:
+              Invalid Property:
+                $ref: "#/responses/Invalid_property"
+              Unauthorized:
+                $ref: "#/responses/Unauthorized_IP_Mismatch"
+        401: 
+          description: Authorization denied or Unauthorized
+          schema:
+            properties:
+              Auhorization Denied:
+                $ref: "#/responses/Authorization_denied"
+              Unauthorized:
+                $ref: "#/responses/Unauthorized"
+        404: 
+          description: Invalid model or Requires initialization or Not found
+          schema:
+            properties:
+              Invalid model:
+                $ref: "#/responses/Invalid_model"
+              Requires initialization:
+                $ref: "#/responses/Requires_initialization"
+              Not found:
+                $ref: "#/responses/Not_found"
+        500: 
+          $ref: "#/responses/Server_error"
+      summary: "List items of a specified item type using library model UUID"
+      tags: ["Items"]
+      
+  server_url/api/{model_choice}/{model_uuid}/items(item_uuid): 
+    get: 
+      description: "This API request will retreive item details relating to the specified item UUID. The item UUIDs of an item type can be obtained from the response returned when you invoke the API method to list items of a specified item type."
+      operationId: get-item-details-by-specifying-the-item-uuid-using-the-library-model-uuid
+      parameters: 
+        - 
+          description: "Modelpedia server URL."
+          in: path
+          name: server_url
+          required: true
+          type: string
+        - 
+          description: "Specifies if you want to retreive the draft, proposed or final version of the library. You can use any one of the values `LatestDraft`, `LatestProposed` or `LatestFinal`."
+          in: path
+          name: model_choice
+          required: true
+          type: string
+        - 
+          description: "The UUID of the published model library."
+          in: path
+          name: model_uuid
+          required: true
+          type: string
+        - 
+          description: "The UUID/s of the item/s that you want to retreive. When retreiving more than one item, use a comma to separate the UUIDs."
+          in: query
+          name: item_uuid
+          required: true
+          type: string
+        - 
+          $ref: "#/parameters/Authorization"
+        - 
+          $ref: "#/parameters/content-type"
+      responses: 
+        ? "200"
+        : 
+          description: "OK"
+          schema: 
+            type: object
+          examples:
+            application/xml: |
+              <?xml version="1.0" encoding="utf-8"?>
+              <items xsi:schemaLocation="https://uat-313.holocentric.com/api/{FA404B82-C6AF-4AD2-B029-9FFEFBB959FD}/items/schema" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance">
+                  <BusinessRule>
+                      <uuid>{192D6750-859C-41C0-9F5C-433C2636BCA7}</uuid>
+                      <title>Business Rule - Eft Kitschy</title>
+                      <uid>10000727</uid>
+                      <name>Business Rule - Eft Kitschy</name>
+                      <aliases>
+                          <value>Eft Kitschy</value>
+                      </aliases>
+                      <alternateName>
+                          <value>Lorem ipsum dolor sit amet</value>
+                          <value>consectetur adipiscing elit</value>
+                          <value>sed do eiusmod tempor incididunt ut labore et dolore magna aliqua</value>
+                      </alternateName>
+                      <description>Description for the item.</description>
+                      <effectiveStartDate>1997-09-22T14:00:00.0000000Z</effectiveStartDate>
+                      <businessRule>This is the business rule...</businessRule>
+                      <dataQualityObjective />
+                      <dataQualityPrinciple />
+                      <relatedDataReferences>
+                          <MetadataItemRelatedDataReference>
+                              <relationshipUuid>{83C8E7CF-1D4E-40CC-BCF3-205FF646B80A}</relationshipUuid>
+                              <otherEnd>
+                                  <ValueDomain refUuid="{615B18EC-3A4F-4CB3-826A-D86B7F59926A}" />
+                              </otherEnd>
+                              <notes>&lt;p&gt;Lorem ipsum dolor sit amet, consectetur adipiscing elit, sed do eiusmod tempor incididunt ut labore et dolore magna aliqua&amp;nbsp; Ut enim ad minim veniam, quis nostrud exercitation ullamco laboris nisi ut aliquip ex ea commodo consequat&amp;nbsp; Duis aute irure dolor in reprehenderit in voluptate velit esse cillum dolore eu fugiat nulla pariatur &lt;/p&gt;</notes>
+                              <relationshipType>Synonym</relationshipType>
+                              <otherEndKey>
+                                  <ValueDomain refUuid="{615B18EC-3A4F-4CB3-826A-D86B7F59926A}" />
+                              </otherEndKey>
+                              <title>Synonym, Dangerous Fennec</title>
+                          </MetadataItemRelatedDataReference>
+                          <MetadataItemRelatedDataReference>
+                              <relationshipUuid>{551DCEBE-C9E6-43ED-B672-B5339399F426}</relationshipUuid>
+                              <otherEnd>
+                                  <FrameworkDimension refUuid="{3F539697-6CD5-47F8-B814-C8BF591F672C}" />
+                              </otherEnd>
+                              <notes>&lt;p&gt;Lorem ipsum dolor sit amet, consectetur adipiscing elit, sed do eiusmod tempor incididunt ut labore et dolore magna aliqua&amp;nbsp; Ut enim ad minim veniam, quis nostrud exercitation ullamco laboris nisi ut aliquip ex ea commodo consequat &lt;/p&gt;</notes>
+                              <relationshipType>Derived From</relationshipType>
+                              <otherEndKey>
+                                  <FrameworkDimension refUuid="{3F539697-6CD5-47F8-B814-C8BF591F672C}" />
+                              </otherEndKey>
+                              <title>Derived From, Mental Termite</title>
+                          </MetadataItemRelatedDataReference>
+                      </relatedDataReferences>
+                      <registrationStatus>
+                          <RegistrationStatus>
+                              <registrationAuthority>
+                                  <RegistrationAuthority refUuid="{0AB03B44-05DB-44FA-92E6-3F026644F094}" />
+                              </registrationAuthority>
+                              <registrationDate>2005-12-10T13:00:00.0000000Z</registrationDate>
+                              <registrationState>Standard</registrationState>
+                              <title>Walrus Xenophobic, Standard 11/12/2005</title>
+                          </RegistrationStatus>
+                      </registrationStatus>
+                      <steward>
+                          <PositionInstance refUuid="{7F5739ED-7982-4A08-AAA4-C84E9EFD0FB5}" />
+                      </steward>
+                      <custodian>
+                          <PositionInstance refUuid="{31375D4B-DCD5-47DD-8E39-FC06EF406954}" />
+                      </custodian>
+                      <administrators>
+                          <PositionInstance refUuid="{31375D4B-DCD5-47DD-8E39-FC06EF406954}" />
+                      </administrators>
+                      <validations>
+                          <Validation refUuid="{1AB7B09C-C050-4A44-9FC8-39ADFF0C8827}" />
+                      </validations>
+                      <dataSetSpecifications>
+                          <DataSetSpecification refUuid="{B0AE5E7A-384B-4A8F-874F-39425FB1CC1F}" />
+                      </dataSetSpecifications>
+                  </BusinessRule>
+              </items>
+        400: 
+          description: Invalid property or Unauthorized
+          schema:
+            properties:
+              Invalid Property:
+                $ref: "#/responses/Invalid_property"
+              Unauthorized:
+                $ref: "#/responses/Unauthorized_IP_Mismatch"
+        401: 
+          description: Authorization denied or Unauthorized
+          schema:
+            properties:
+              Auhorization denied:
+                $ref: "#/responses/Authorization_denied"
+              Unauthorized:
+                $ref: "#/responses/Unauthorized"
+        404: 
+          description: Invalid model or Requires initialization or Not found
+          schema:
+            properties:
+              Invalid model:
+                $ref: "#/responses/Invalid_model"
+              Requires initialization:
+                $ref: "#/responses/Requires_initialization"
+              Not found:
+                $ref: "#/responses/Not_found"
+        500: 
+          $ref: "#/responses/Server_error"
+      summary: "Get item details by specifying the item UUID using library model UUID"
+      tags: ["Items"]
+      
+  server_url/api/{model_uuid}/items/schema: 
+    get: 
+      description: "This is used to query the items schema when you provide the UUID of the specific version of a published model library."
+      operationId: get-item-schema
+      parameters: 
+        - 
+          description: "Modelpedia server URL."
+          in: path
+          name: server_url
+          required: true
+          type: string
+        - 
+          description: "The UUID of the specific version of the model library."
+          in: path
+          name: model_uuid
+          required: true
+          type: string
+        - 
+          $ref: "#/parameters/Authorization"
+        - 
+          $ref: "#/parameters/content-type"
+      responses: 
+        ? "200"
+        : 
+          description: "OK" 
+          schema: 
+            type: object
+          examples:
+            application/xml: |
+              <?xml version="1.0"?>
+              <xs:schema attributeFormDefault="unqualified" elementFormDefault="qualified" xmlns:xs="http://www.w3.org/2001/XMLSchema">
+                  <xs:annotation>
+                      <xs:documentation>version: {FA404B82-C6AF-4AD2-B029-9FFEFBB959FD}</xs:documentation>
+                  </xs:annotation>
+                  <xs:complexType name="Any">
+                      <xs:sequence>
+                          <xs:any minOccurs="0" maxOccurs="1" />
+                      </xs:sequence>
+                  </xs:complexType>
+                  <xs:complexType name="BusinessRule">
+                      <xs:sequence>
+                          <xs:choice maxOccurs="unbounded">
+                              <xs:element name="uuid" type="xs:string" />
+                              <xs:element name="title" type="xs:string" />
+                              <xs:element name="businessRule" type="xs:string" />
+                              <xs:element name="category" type="xs:string" />
+                              <xs:element name="dataQualityObjective" type="xs:string" />
+                              <xs:element name="dataQualityPrinciple" type="xs:string" />
+                              <xs:element name="description" type="xs:string" />
+                              <xs:element name="effectiveEndDate" type="xs:date" />
+                              <xs:element name="effectiveStartDate" type="xs:date" />
+                              <xs:element name="guideForUse" type="xs:string" />
+                              <xs:element name="name" type="xs:string" />
+                              <xs:element name="uid" type="xs:string" />
+                              <xs:element name="registrationStatus" type="CollectionOfRegistrationStatus" />
+                              <xs:element name="relatedDataReferences" type="CollectionOfMetadataItemRelatedDataReference" />
+                              <xs:element name="aliases">
+                                  <xs:complexType>
+                                      <xs:sequence>
+                                          <xs:element name="value" type="xs:string" />
+                                      </xs:sequence>
+                                  </xs:complexType>
+                              </xs:element>
+                              <xs:element name="alternateName">
+                                  <xs:complexType>
+                                      <xs:sequence>
+                                          <xs:element name="value" type="xs:string" />
+                                      </xs:sequence>
+                                  </xs:complexType>
+                              </xs:element>
+                              <xs:element name="steward" type="CollectionOfPositionInstance" />
+                              <xs:element name="custodian" type="CollectionOfPositionInstance" />
+                              <xs:element name="keyContact" type="CollectionOfPositionInstance" />
+                              <xs:element name="administrators" type="CollectionOfPositionInstance" />
+                              <xs:element name="dataSetSpecifications" type="CollectionOfDataSetSpecification" />
+                              <xs:element name="glossaryItems" type="CollectionOfGlossaryItemTerm" />
+                              <xs:element name="validations" type="CollectionOfValidation" />
+                          </xs:choice>
+                      </xs:sequence>
+                      <xs:attribute name="refUuid" type="xs:string" use="optional" />
+                  </xs:complexType>
+                  <xs:complexType name="GlossaryItemTerm">
+                      <xs:sequence>
+                          <xs:choice maxOccurs="unbounded">
+                              <xs:element name="uuid" type="xs:string" />
+                              <xs:element name="title" type="xs:string" />
+                              <xs:element name="caseStudy" type="xs:string" />
+                              <xs:element name="category" type="xs:string" />
+                              <xs:element name="collectionMethods" type="xs:string" />
+                              <xs:element name="comments" type="xs:string" />
+                              <xs:element name="context" type="xs:string" />
+                              <xs:element name="description" type="xs:string" />
+                              <xs:element name="effectiveEndDate" type="xs:date" />
+                              <xs:element name="effectiveStartDate" type="xs:date" />
+                              <xs:element name="guideForUse" type="xs:string" />
+                              <xs:element name="name" type="xs:string" />
+                              <xs:element name="origin" type="xs:string" />
+                              <xs:element name="periodicReviewByDate" type="xs:date" />
+                              <xs:element name="referenceDocuments" type="xs:string" />
+                              <xs:element name="submittingOrganisation" type="xs:string" />
+                              <xs:element name="uid" type="xs:string" />
+                              <xs:element name="registrationStatus" type="CollectionOfRegistrationStatus" />
+                              <xs:element name="relatedDataReferences" type="CollectionOfMetadataItemRelatedDataReference" />
+                              <xs:element name="aliases">
+                                  <xs:complexType>
+                                      <xs:sequence>
+                                          <xs:element name="value" type="xs:string" />
+                                      </xs:sequence>
+                                  </xs:complexType>
+                              </xs:element>
+                              <xs:element name="alternateName">
+                                  <xs:complexType>
+                                      <xs:sequence>
+                                          <xs:element name="value" type="xs:string" />
+                                      </xs:sequence>
+                                  </xs:complexType>
+                              </xs:element>
+                              <xs:element name="metadataItems" type="CollectionOfMetadataItem" />
+                              <xs:element name="administrators" type="CollectionOfPositionInstance" />
+                              <xs:element name="custodian" type="CollectionOfPositionInstance" />
+                              <xs:element name="steward" type="CollectionOfPositionInstance" />
+                              <xs:element name="keyContact" type="CollectionOfPositionInstance" />
+                              <xs:element name="glossaryItems" type="CollectionOfGlossaryItemTerm" />
+                          </xs:choice>
+                      </xs:sequence>
+                      <xs:attribute name="refUuid" type="xs:string" use="optional" />
+                  </xs:complexType>
+                  <xs:element name="items">
+                      <xs:complexType>
+                          <xs:choice maxOccurs="unbounded">
+                              <xs:element name="BusinessRule" type="BusinessRule" />
+                              <xs:element name="GlossaryItemTerm" type="GlossaryItemTerm" />
+                          </xs:choice>
+                      </xs:complexType>
+                  </xs:element>
+              </xs:schema>
+        401: 
+          description: Unauthorized or Authorization denied
+          schema:
+            properties:
+              Auhorization denied:
+                $ref: "#/responses/Authorization_denied"
+              Unauthorized:
+                $ref: "#/responses/Unauthorized"
+        404: 
+          description: Invalid model or Requires initialization or Not found
+          schema:
+            properties:
+              Invalid model:
+                $ref: "#/responses/Invalid_model"
+              Requires initialization:
+                $ref: "#/responses/Requires_initialization"
+              Not found:
+                $ref: "#/responses/Not_found"
+        400: 
+          $ref: "#/responses/Unauthorized_IP_Mismatch"
+        500: 
+          $ref: "#/responses/Server_error"
+      summary: "Get item schema using specific model version UUID"
+      tags: ["Schema"]
+      
+  server_url/api/{model_uuid}/items?$filter=isof('item_type'): 
+    get: 
+      description: |-
+          This API request will retreive all items relating to the specified item type. The item type can be filtered out using the `$filter` paramater and the `isOf` option. 
+          e.g., `filter=isof('Business Rule')` will list out all items that are listed under item type `Business Rule`.
+      operationId: list-items-of-a-specified-item-type-using-specific-model-version-uuid
+      parameters: 
+        - 
+          description: "Modelpedia server URL."
+          in: path
+          name: server_url
+          required: true
+          type: string
+        - 
+          description: "The UUID of the specific version of the model library."
+          in: path
+          name: model_uuid
+          required: true
+          type: string
+        - 
+          $ref: "#/parameters/$filter"
+        - 
+          $ref: "#/parameters/$top"
+        - 
+          $ref: "#/parameters/$skip"
+        - 
+          $ref: "#/parameters/$count"
+        - 
+          $ref: "#/parameters/$select"
+        - 
+          $ref: "#/parameters/Authorization"
+        - 
+          $ref: "#/parameters/content-type"
+      responses: 
+        200: 
+          description: OK
+          schema: 
+            type: object
+          examples:
+            application/xml: |
+              <?xml version="1.0" encoding="utf-8"?>
+               <items xsi:schemaLocation="https://www.modelpedia.com/api/{FA404B82-C6AF-4AD2-B029-9FFEFBB959FD}/items/schema" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance">
+                  <BusinessRule>
+                      <uuid>{192D6750-856C-42C0-9F5C-433C2636BCA7}</uuid>
+                      <title>Business Rule - Eft Kitschy</title>
+                      <uid>10000727</uid>
+                      <name>Business Rule - Eft Kitschy</name>
+                      <aliases>
+                          <value>Eft Kitschy</value>
+                      </aliases>
+                      <alternateName>
+                          <value>Lorem ipsum dolor sit amet</value>
+                          <value>consectetur adipiscing elit</value>
+                          <value>sed do eiusmod tempor incididunt ut labore et dolore magna aliqua</value>
+                      </alternateName>
+                      <description>This is the description.</description>
+                      <effectiveStartDate>1997-09-22T14:00:00.0000000Z</effectiveStartDate>
+                      <businessRule>Business rule specfication...</businessRule>
+                      <relatedDataReferences>
+                          <MetadataItemRelatedDataReference>
+                              <relationshipUuid>{83C8E7CF-1D4E-40CC-BCF3-205FF646B80A}</relationshipUuid>
+                              <otherEnd>
+                                  <ValueDomain refUuid="{615B18EC-3A4F-4CB3-826A-D86B7F59926A}" />
+                              </otherEnd>
+                              <relationshipType>Synonym</relationshipType>
+                              <otherEndKey>
+                                  <ValueDomain refUuid="{615B18EC-3A4F-4CB3-826A-D86B7F59926A}" />
+                              </otherEndKey>
+                              <title>Synonym, Dangerous Fennec</title>
+                          </MetadataItemRelatedDataReference>
+                          <MetadataItemRelatedDataReference>
+                              <relationshipUuid>{551DCEBE-C9E6-43ED-B672-B5339399F426}</relationshipUuid>
+                              <otherEnd>
+                                  <FrameworkDimension refUuid="{3F539697-6CD5-47F8-B814-C8BF591F672C}" />
+                              </otherEnd>
+                              <relationshipType>Derived From</relationshipType>
+                              <otherEndKey>
+                                  <FrameworkDimension refUuid="{3F539697-6CD5-47F8-B814-C8BF591F672C}" />
+                              </otherEndKey>
+                              <title>Derived From, Mental Termite</title>
+                          </MetadataItemRelatedDataReference>
+                      </relatedDataReferences>
+                      <registrationStatus>
+                          <RegistrationStatus>
+                              <registrationAuthority>
+                                  <RegistrationAuthority refUuid="{0AB03B44-05DB-44FA-92E6-3F026644F094}" />
+                              </registrationAuthority>
+                              <registrationDate>2005-12-10T13:00:00.0000000Z</registrationDate>
+                              <registrationState>Standard</registrationState>
+                              <title>Walrus Xenophobic, Standard 11/12/2005</title>
+                          </RegistrationStatus>
+                      </registrationStatus>
+                      <steward>
+                          <PositionInstance refUuid="{7F5739ED-7982-4A08-AAA4-C84E9EFD0FB5}" />
+                      </steward>
+                      <custodian>
+                          <PositionInstance refUuid="{31375D4B-DCD5-47DD-8E39-FC06EF406954}" />
+                      </custodian>
+                      <administrators>
+                          <PositionInstance refUuid="{31375D4B-DCD5-47DD-8E39-FC06EF406954}" />
+                      </administrators>
+                      <validations>
+                          <Validation refUuid="{1AB7B09C-C050-4A44-9FC8-39ADFF0C8827}" />
+                      </validations>
+                      <dataSetSpecifications>
+                          <DataSetSpecification refUuid="{B0AE5E7A-384B-4A8F-874F-39425FB1CC1F}" />
+                      </dataSetSpecifications>
+                  </BusinessRule>
+                  <BusinessRule>
+                      <uuid>{22B3FA59-B836-4AA6-8300-B5EAB16711B5}</uuid>
+                      <title>Business Rule - Zebra Froody</title>
+                      <uid>10000730</uid>
+                      <name>Business Rule - Zebra Froody</name>
+                      <aliases>
+                          <value>Zebra Froody</value>
+                      </aliases>
+                      <description>This is a description.</description>
+                      <businessRule>This is the business rule...</businessRule>
+                      <relatedDataReferences>
+                          <MetadataItemRelatedDataReference>
+                              <relationshipUuid>{153B4C64-4DC6-4C1E-96C0-80E1A144EA58}</relationshipUuid>
+                              <otherEnd>
+                                  <BusinessRule refUuid="{5118D8CD-9BB3-4E93-9805-16F78BA31A84}" />
+                              </otherEnd>
+                              <notes>&lt;p&gt;Lorem ipsum dolor sit amet, consectetur adipiscing elit, sed do eiusmod tempor incididunt ut labore et dolore magna aliqua&amp;nbsp; Ut enim ad minim veniam, quis nostrud exercitation ullamco laboris nisi ut aliquip ex ea commodo consequat &lt;/p&gt;</notes>
+                              <relationshipType>Variant</relationshipType>
+                              <otherEndKey>
+                                  <BusinessRule refUuid="{5118D8CD-9BB3-4E93-9805-16F78BA31A84}" />
+                              </otherEndKey>
+                              <title>Variant, Rooster Leftist</title>
+                          </MetadataItemRelatedDataReference>
+                          <MetadataItemRelatedDataReference>
+                              <relationshipUuid>{63D4073A-54A6-4AC9-9B70-FF3A5FBEA4AD}</relationshipUuid>
+                              <otherEnd>
+                                  <DataElement refUuid="{A1D43215-22ED-4136-A218-383BE3FE1450}" />
+                              </otherEnd>
+                              <relationshipType>Derived From</relationshipType>
+                              <otherEndKey>
+                                  <DataElement refUuid="{A1D43215-22ED-4136-A218-383BE3FE1450}" />
+                              </otherEndKey>
+                              <title>Derived From, Veteran Jaybird</title>
+                          </MetadataItemRelatedDataReference>
+                          <MetadataItemRelatedDataReference>
+                              <relationshipUuid>{C04A4769-3D6B-4C76-B2EB-A862EBA8BD8B}</relationshipUuid>
+                              <otherEnd>
+                                  <DataElementConcept refUuid="{E5BD50F6-E6CA-4D12-918C-6C20A8C4F8B1}" />
+                              </otherEnd>
+                              <relationshipType>Implemented By</relationshipType>
+                              <otherEndKey>
+                                  <DataElementConcept refUuid="{E5BD50F6-E6CA-4D12-918C-6C20A8C4F8B1}" />
+                              </otherEndKey>
+                              <title>Implemented By, Jabbering Gator</title>
+                          </MetadataItemRelatedDataReference>
+                          <MetadataItemRelatedDataReference>
+                              <relationshipUuid>{7C6C274F-9BF5-4DA2-B542-1311797FB9A8}</relationshipUuid>
+                              <otherEnd>
+                                  <Property refUuid="{5BE469B8-32EB-4E5A-8025-3C3098936AF6}" />
+                              </otherEnd>
+                              <relationshipType>Implemented By</relationshipType>
+                              <otherEndKey>
+                                  <Property refUuid="{5BE469B8-32EB-4E5A-8025-3C3098936AF6}" />
+                              </otherEndKey>
+                              <title>Implemented By, Gnarwhal Xenial</title>
+                          </MetadataItemRelatedDataReference>
+                          <MetadataItemRelatedDataReference>
+                              <relationshipUuid>{CB6F10D5-09F2-4CD4-81ED-6B3BF6587C07}</relationshipUuid>
+                              <otherEnd>
+                                  <DataElement refUuid="{467DD7E3-4817-4392-9ADC-9AF16C4483C4}" />
+                              </otherEnd>
+                              <notes>&lt;p&gt;Lorem ipsum dolor sit amet, consectetur adipiscing elit, sed do eiusmod tempor incididunt ut labore et dolore magna aliqua&amp;nbsp; Ut enim ad minim veniam, quis nostrud exercitation ullamco laboris nisi ut aliquip ex ea commodo consequat&amp;nbsp; Duis aute irure dolor in reprehenderit in voluptate velit esse cillum dolore eu fugiat nulla pariatur &lt;/p&gt;</notes>
+                              <relationshipType>Duplicate</relationshipType>
+                              <otherEndKey>
+                                  <DataElement refUuid="{467DD7E3-4817-4392-9ADC-9AF16C4483C4}" />
+                              </otherEndKey>
+                              <title>Duplicate, Untapped Jaybird</title>
+                          </MetadataItemRelatedDataReference>
+                          <MetadataItemRelatedDataReference>
+                              <relationshipUuid>{54047F8C-BEC4-44DB-ADAF-2FE77B093118}</relationshipUuid>
+                              <otherEnd>
+                                  <Property refUuid="{9346D77D-19B1-42DF-BBB8-8A11FD73B6D0}" />
+                              </otherEnd>
+                              <notes>&lt;p&gt;Lorem ipsum dolor sit amet, consectetur adipiscing elit, sed do eiusmod tempor incididunt ut labore et dolore magna aliqua &lt;/p&gt;</notes>
+                              <relationshipType>Derived From</relationshipType>
+                              <otherEndKey>
+                                  <Property refUuid="{9346D77D-19B1-42DF-BBB8-8A11FD73B6D0}" />
+                              </otherEndKey>
+                              <title>Derived From, Xenarthra Igneous</title>
+                          </MetadataItemRelatedDataReference>
+                          <MetadataItemRelatedDataReference>
+                              <relationshipUuid>{74AB8792-C469-4CDD-8407-152FB981826F}</relationshipUuid>
+                              <otherEnd>
+                                  <ObjectClass refUuid="{7A258363-0E15-4492-BE71-04876463E2F3}" />
+                              </otherEnd>
+                              <notes />
+                              <relationshipType>Source Of</relationshipType>
+                              <otherEndKey>
+                                  <ObjectClass refUuid="{7A258363-0E15-4492-BE71-04876463E2F3}" />
+                              </otherEndKey>
+                              <title>Source Of, Pika Clever</title>
+                          </MetadataItemRelatedDataReference>
+                      </relatedDataReferences>
+                      <custodian>
+                          <PositionInstance refUuid="{7B2662AF-CA34-440A-AE6E-F81A34258F47}" />
+                      </custodian>
+                      <keyContact>
+                          <PositionInstance refUuid="{6E2A6095-FEB5-42E4-B251-3E38353750A4}" />
+                      </keyContact>
+                      <steward>
+                          <PositionInstance refUuid="{A6E5FBDE-CFA1-4EDB-9DAF-2BE09C76916B}" />
+                      </steward>
+                      <administrators>
+                          <PositionInstance refUuid="{31375D4B-DCD5-47DD-8E39-FC06EF406954}" />
+                      </administrators>
+                      <dataSetSpecifications>
+                          <DataSetSpecification refUuid="{B0AE5E7A-384B-4A8F-874F-39425FB1CC1F}" />
+                      </dataSetSpecifications>
+                      <glossaryItems>
+                          <GlossaryItemTerm refUuid="{522049A4-AAE1-4B95-969D-A32C049175F3}" />
+                      </glossaryItems>
+                  </BusinessRule>
+              </items> 
+        400: 
+          description: Invalid property or Unauthorized
+          schema:
+            properties:
+              Invalid property:
+                $ref: "#/responses/Invalid_property"
+              Unauthorized:
+                $ref: "#/responses/Unauthorized_IP_Mismatch"
+        401: 
+          description: Authorization denied or Unauthorized
+          schema:
+            properties:
+              Auhorization denied:
+                $ref: "#/responses/Authorization_denied"
+              Unauthorized:
+                $ref: "#/responses/Unauthorized"
+        404: 
+          description: Invalid model or Requires initialization or Not found
+          schema:
+            properties:
+              Invalid model:
+                $ref: "#/responses/Invalid_model"
+              Requires initialization:
+                $ref: "#/responses/Requires_initialization"
+              Not found:
+                $ref: "#/responses/Not_found"
+        500: 
+          $ref: "#/responses/Server_error"
+      summary: "List items of a specified item type using a specific model version UUID"
+      tags: ["Items"]
+      
+  server_url/api/{model_uuid}/items(item_uuid): 
+    get: 
+      description: "This API request will retreive item details relating to the specified item UUID. The item UUIDs of an item type can be obtained from the response returned when you invoke the API method to list items of a specific item type."
+      operationId: get-item-details-by-specifying-the-item-uuid-for-a-specific-model-version-uuid
+      parameters: 
+        - 
+          description: "Modelpedia server URL."
+          in: path
+          name: server_url
+          required: true
+          type: string
+        - 
+          description: "The UUID of the specific version of the model library."
+          in: path
+          name: model_uuid
+          required: true
+          type: string
+        - 
+          description: "The UUID/s of the item/s that you want to retreive. When retreiving more than one item, use a comma to sepaerate the UUIDs."
+          in: query
+          name: item_uuid
+          required: true
+          type: string
+        - 
+          $ref: "#/parameters/Authorization"
+        - 
+          $ref: "#/parameters/content-type"
+      responses: 
+        ? "200"
+        : 
+          description: "OK"
+          schema: 
+            type: object
+          examples:
+            application/xml: |
+              <?xml version="1.0" encoding="utf-8"?>
+              <items xsi:schemaLocation="https://uat-313.holocentric.com/api/{FA404B82-C6AF-4AD2-B029-9FFEFBB959FD}/items/schema" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance">
+                  <BusinessRule>
+                      <uuid>{192D6750-859C-41C0-9F5C-433C2636BCA7}</uuid>
+                      <title>Business Rule - Eft Kitschy</title>
+                      <uid>10000727</uid>
+                      <name>Business Rule - Eft Kitschy</name>
+                      <aliases>
+                          <value>Eft Kitschy</value>
+                      </aliases>
+                      <alternateName>
+                          <value>Lorem ipsum dolor sit amet</value>
+                          <value>consectetur adipiscing elit</value>
+                          <value>sed do eiusmod tempor incididunt ut labore et dolore magna aliqua</value>
+                      </alternateName>
+                      <description>Description for the item.</description>
+                      <effectiveStartDate>1997-09-22T14:00:00.0000000Z</effectiveStartDate>
+                      <businessRule>This is the business rule...</businessRule>
+                      <dataQualityObjective />
+                      <dataQualityPrinciple />
+                      <relatedDataReferences>
+                          <MetadataItemRelatedDataReference>
+                              <relationshipUuid>{83C8E7CF-1D4E-40CC-BCF3-205FF646B80A}</relationshipUuid>
+                              <otherEnd>
+                                  <ValueDomain refUuid="{615B18EC-3A4F-4CB3-826A-D86B7F59926A}" />
+                              </otherEnd>
+                              <notes>&lt;p&gt;Lorem ipsum dolor sit amet, consectetur adipiscing elit, sed do eiusmod tempor incididunt ut labore et dolore magna aliqua&amp;nbsp; Ut enim ad minim veniam, quis nostrud exercitation ullamco laboris nisi ut aliquip ex ea commodo consequat&amp;nbsp; Duis aute irure dolor in reprehenderit in voluptate velit esse cillum dolore eu fugiat nulla pariatur &lt;/p&gt;</notes>
+                              <relationshipType>Synonym</relationshipType>
+                              <otherEndKey>
+                                  <ValueDomain refUuid="{615B18EC-3A4F-4CB3-826A-D86B7F59926A}" />
+                              </otherEndKey>
+                              <title>Synonym, Dangerous Fennec</title>
+                          </MetadataItemRelatedDataReference>
+                          <MetadataItemRelatedDataReference>
+                              <relationshipUuid>{551DCEBE-C9E6-43ED-B672-B5339399F426}</relationshipUuid>
+                              <otherEnd>
+                                  <FrameworkDimension refUuid="{3F539697-6CD5-47F8-B814-C8BF591F672C}" />
+                              </otherEnd>
+                              <notes>&lt;p&gt;Lorem ipsum dolor sit amet, consectetur adipiscing elit, sed do eiusmod tempor incididunt ut labore et dolore magna aliqua&amp;nbsp; Ut enim ad minim veniam, quis nostrud exercitation ullamco laboris nisi ut aliquip ex ea commodo consequat &lt;/p&gt;</notes>
+                              <relationshipType>Derived From</relationshipType>
+                              <otherEndKey>
+                                  <FrameworkDimension refUuid="{3F539697-6CD5-47F8-B814-C8BF591F672C}" />
+                              </otherEndKey>
+                              <title>Derived From, Mental Termite</title>
+                          </MetadataItemRelatedDataReference>
+                      </relatedDataReferences>
+                      <registrationStatus>
+                          <RegistrationStatus>
+                              <registrationAuthority>
+                                  <RegistrationAuthority refUuid="{0AB03B44-05DB-44FA-92E6-3F026644F094}" />
+                              </registrationAuthority>
+                              <registrationDate>2005-12-10T13:00:00.0000000Z</registrationDate>
+                              <registrationState>Standard</registrationState>
+                              <title>Walrus Xenophobic, Standard 11/12/2005</title>
+                          </RegistrationStatus>
+                      </registrationStatus>
+                      <steward>
+                          <PositionInstance refUuid="{7F5739ED-7982-4A08-AAA4-C84E9EFD0FB5}" />
+                      </steward>
+                      <custodian>
+                          <PositionInstance refUuid="{31375D4B-DCD5-47DD-8E39-FC06EF406954}" />
+                      </custodian>
+                      <administrators>
+                          <PositionInstance refUuid="{31375D4B-DCD5-47DD-8E39-FC06EF406954}" />
+                      </administrators>
+                      <validations>
+                          <Validation refUuid="{1AB7B09C-C050-4A44-9FC8-39ADFF0C8827}" />
+                      </validations>
+                      <dataSetSpecifications>
+                          <DataSetSpecification refUuid="{B0AE5E7A-384B-4A8F-874F-39425FB1CC1F}" />
+                      </dataSetSpecifications>
+                  </BusinessRule>
+              </items>
+        400: 
+          description: Invalid property or Unauthorized
+          schema:
+            properties:
+              Invalid property:
+                $ref: "#/responses/Invalid_property"
+              Unauthorized:
+                $ref: "#/responses/Unauthorized_IP_Mismatch"
+        401: 
+          description: Authorization denied or Unauthorized
+          schema:
+            properties:
+              Auhorization denied:
+                $ref: "#/responses/Authorization_denied"
+              Unauthorized:
+                $ref: "#/responses/Unauthorized"
+        404: 
+          description: Invalid model or Requires initialization or Not found
+          schema:
+            properties:
+              Invalid model:
+                $ref: "#/responses/Invalid_model"
+              Requires initialization:
+                $ref: "#/responses/Requires_initialization"
+              Not found:
+                $ref: "#/responses/Not_found"
+        500: 
+          $ref: "#/responses/Server_error"
+      summary: "Get item details by specifying the item UUID for a specific model version UUID"
+      tags: ["Items"]    
+responses: 
+  Unauthorized: 
+    description: |-
+      Unauthorized: Access is denied due to invalid credentials.
+
+      This error response is returned due to any one of the following reasons:
+      - No access token provided in the header of the API request
+      - The access token provided in the API request is incorrect.
+  Authorization_denied: 
+    description: |-
+        Authorization has been denied for this request. This error response is returned be due to any one of the following reasons:
+        
+         - Either the `Repository Administrator` role or the `API Client (Full Read)` role has not been assigned to the user invoking the API. The access token has expired (i.e. 8 hours have exceeded since the token was generated.)
+         - The role `API Client (Full Read)` has been revoked from the user and the 5 minutes cache time period for the access token has also expired.
+         - User is attempting to access a library that he/she does not have access.
+         - Access token was generated for one server and now being used for accessing a model library on another server.
+  Invalid_model: 
+    description: |-
+        The requested model is invalid.
+        
+        This error response is returned due to any one of the following reasons:
+        
+         - The model library is not published.
+         - Model choice is not provided along with the model library UUID when invoking an API request for a published model.
+         - The model library or the specific version UUID provided is incorrect.
+         - The library being queried has been published with RMU (Revision Mark-Up) enabled.
+  Invalid_property:
+    description: |-
+      The specified property names are not valid.
+
+      This error response is returned due to any one of the following reasons:
+      - Invalid property name is entered with the `$select` parameter.
+      - Invalid item type name is provided with the `$filter` parameter.
+  Not_found: 
+    description: |-
+        Not found.
+        
+        This error response is returned when you make an API request to retreive the schema or items of a published library but you have a typo in your API URL.
+  Requires_initialization: 
+    description: "The requested model requires initialization.This error response is returned when you attempt to make an API request on a published model that is not initialized or is currently being initialized."
+  Server_error: 
+    description: |-
+        Server Error: An internal server error occured. 
+        
+        This error response is returned due to any one of the following reasons:
+         - The API license key has not been uploaded to the server.
+         - The API server license key has expired.
+         - SSL certificate has not been installed on the server.
+    #examples:
+    #  application/xml: |
+    #    <server_error>An internal server error occured</server_error>
+  Unauthorized_IP_Mismatch:
+      description: |-
+          Authorization has been denied for this request. User host address (IP) mismatch.
+
+          This error response is returned when the access token was generated using one IP address and now being used for invoking an API request from a different IP address.
